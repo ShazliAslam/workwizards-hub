@@ -77,11 +77,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "WeActive9 — Field Ops, Expenses & Payroll" },
+      {
+        name: "description",
+        content:
+          "WeActive9 field engineer platform for shift logging, expense claims, and automated payroll.",
+      },
+      { name: "author", content: "WeActive9" },
+      { property: "og:title", content: "WeActive9 — Field Ops, Expenses & Payroll" },
+      {
+        property: "og:description",
+        content: "Shift logging, expense claims and payroll for field engineering teams.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
