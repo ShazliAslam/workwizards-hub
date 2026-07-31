@@ -64,17 +64,17 @@ function rng(seed: number) {
 
 export const ENGINEERS: Engineer[] = FIRST.map((f, i) => {
   const r = rng(i + 7);
-  const name = `${f} ${LAST[i]}`;
+  const name = `${f} ${LAST[i]!}`;
   return {
     id: `ENG-${String(i + 1).padStart(3, "0")}`,
     name,
-    email: `${f.toLowerCase()}.${LAST[i].toLowerCase()}@weactive9.com`,
-    region: ["North", "South", "Midlands", "Scotland", "Wales"][i % 5],
+    email: `${f.toLowerCase()}.${LAST[i]!.toLowerCase()}@weactive9.com`,
+    region: ["North", "South", "Midlands", "Scotland", "Wales"][i % 5]!,
     hourlyRate: 26 + Math.round(r() * 14),
   };
 });
 
-export const CURRENT_ENGINEER = ENGINEERS[0];
+export const CURRENT_ENGINEER = ENGINEERS[0]!;
 
 function dateNDaysAgo(n: number) {
   const d = new Date();
@@ -89,7 +89,7 @@ ENGINEERS.forEach((eng, ei) => {
   const r = rng(ei * 31 + 3);
   for (let d = 0; d < 28; d++) {
     if (r() < 0.32) continue;
-    const site = SITES[Math.floor(r() * SITES.length)];
+    const site = SITES[Math.floor(r() * SITES.length)]!;
     const date = dateNDaysAgo(d);
     const status: Status = d > 6 || r() > 0.45 ? "Approved" : "Pending";
     SHIFTS.push({
