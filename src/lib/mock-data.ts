@@ -27,7 +27,7 @@ export interface ExpenseEntry {
   fuel: number;
   meals: number;
   creditCard: number;
-  receiptName?: string;
+  receiptName?: string | undefined;
   status: Status;
 }
 
