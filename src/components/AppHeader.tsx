@@ -1,11 +1,19 @@
 import { Link, useRouter } from "@tanstack/react-router";
 import { HardHat, LogOut, ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
 import { useSession } from "@/lib/session";
-import { CURRENT_ENGINEER } from "@/lib/mock-data";
+import { ENGINEERS } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export function AppHeader({ variant }: { variant: "engineer" | "admin" }) {
-  const { signOut } = useSession();
+  const { signOut, engineer, engineerId, setEngineerId } = useSession();
   const router = useRouter();
 
   return (
@@ -24,22 +32,46 @@ export function AppHeader({ variant }: { variant: "engineer" | "admin" }) {
               WeActive9
             </span>
             <span className="block truncate text-[11px] font-medium uppercase tracking-[0.14em] text-white/60">
-              {variant === "admin" ? "CEO / Admin console" : CURRENT_ENGINEER.name}
+              {variant === "admin" ? "CEO / Admin console" : engineer.name}
             </span>
           </span>
         </Link>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="shrink-0 gap-2 text-white/85 hover:bg-white/12 hover:text-white"
-          onClick={() => {
-            signOut();
-            router.navigate({ to: "/" });
-          }}
-        >
-          <LogOut className="h-4 w-4" />
-          <span className="hidden sm:inline">Sign out</span>
-        </Button>
+
+        <div className="flex shrink-0 items-center gap-2">
+          {variant === "engineer" && (
+            <Select
+              value={engineerId}
+              onValueChange={(id) => {
+                setEngineerId(id);
+                const next = ENGINEERS.find((e) => e.id === id);
+                if (next) toast.success(`Switched to ${next.name}`);
+              }}
+            >
+              <SelectTrigger className="h-9 w-[9.5rem] border-white/20 bg-white/10 text-xs text-white sm:w-[13rem]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="max-h-72">
+                {ENGINEERS.map((e) => (
+                  <SelectItem key={e.id} value={e.id}>
+                    {e.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="shrink-0 gap-2 text-white/85 hover:bg-white/12 hover:text-white"
+            onClick={() => {
+              signOut();
+              router.navigate({ to: "/" });
+            }}
+          >
+            <LogOut className="h-4 w-4" />
+            <span className="hidden sm:inline">Sign out</span>
+          </Button>
+        </div>
       </div>
     </header>
   );
