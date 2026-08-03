@@ -39,13 +39,8 @@ async function newDoc(title: string, subtitle: string) {
   return { doc, autoTable, width };
 }
 
-function sectionTitle(
-  doc: import("jspdf").jsPDF,
-  data: { cursor: { y: number } | null; table: { startY: number } },
-  label: string,
-) {
-  const y = data.table.startY - 10;
-  if (y < 40) return;
+function sectionTitle(doc: import("jspdf").jsPDF, startY: number, label: string) {
+  const y = doc.getNumberOfPages() > 1 && startY > 200 ? 46 : startY - 10;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.setTextColor(16, 34, 66);
@@ -84,8 +79,9 @@ export async function generateEngineerStatementPdf(
   const totalHours = shifts.reduce((a, s) => a + s.hours, 0);
   const totalClaims = expenses.reduce((a, e) => a + expenseTotal(e), 0);
 
+  let startY = 150;
   autoTable(doc, {
-    startY: 150,
+    startY,
     theme: "plain",
     styles: { fontSize: 10, cellPadding: 6 },
     body: [
@@ -98,8 +94,9 @@ export async function generateEngineerStatementPdf(
     tableWidth: 380,
   });
 
+  startY = (doc as never as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 24;
   autoTable(doc, {
-    startY: (doc as never as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 24,
+    startY,
     head: [["Date", "Site", "Shift", "Hours", "Status"]],
     body: shifts.map((s) => [s.date, s.site, s.shiftType, `${s.hours}`, s.status]),
     headStyles: { fillColor: NAVY, textColor: 255, fontStyle: "bold" },
@@ -110,11 +107,12 @@ export async function generateEngineerStatementPdf(
     pageBreak: "auto",
     rowPageBreak: "avoid",
     showHead: "everyPage",
-    didDrawPage: (d) => sectionTitle(doc, d, "Shift log"),
+    didDrawPage: () => sectionTitle(doc, startY, "Shift log"),
   });
 
+  startY = (doc as never as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 24;
   autoTable(doc, {
-    startY: (doc as never as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 24,
+    startY,
     head: [["Date", "Site", "Fuel", "Meals", "Card", "Total", "Receipt", "Status"]],
     body: expenses.map((e) => [
       e.date,
@@ -141,7 +139,7 @@ export async function generateEngineerStatementPdf(
     pageBreak: "avoid",
     rowPageBreak: "avoid",
     showHead: "everyPage",
-    didDrawPage: (d) => sectionTitle(doc, d, "Expense claims"),
+    didDrawPage: () => sectionTitle(doc, startY, "Expense claims"),
   });
 
   footer(doc);
@@ -169,8 +167,9 @@ export async function generatePayrollPdf(rows: PayrollRow[], periodLabel: string
   const baseTotal = rows.reduce((a, r) => a + r.base, 0);
   const reimbTotal = rows.reduce((a, r) => a + r.reimb, 0);
 
+  let startY = 150;
   autoTable(doc, {
-    startY: 150,
+    startY,
     theme: "plain",
     styles: { fontSize: 10, cellPadding: 6 },
     body: [
@@ -182,8 +181,9 @@ export async function generatePayrollPdf(rows: PayrollRow[], periodLabel: string
     tableWidth: 400,
   });
 
+  startY = (doc as never as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 24;
   autoTable(doc, {
-    startY: (doc as never as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 24,
+    startY,
     head: [["Engineer", "Region", "Rate", "Day h", "Night h", "Base", "Reimb.", "Gross"]],
     body: rows.map((r) => [
       r.name,
@@ -211,7 +211,7 @@ export async function generatePayrollPdf(rows: PayrollRow[], periodLabel: string
     margin: { left: 40, right: 40, top: 60 },
     rowPageBreak: "avoid",
     showHead: "everyPage",
-    didDrawPage: (d) => sectionTitle(doc, d, "Payroll breakdown"),
+    didDrawPage: () => sectionTitle(doc, startY, "Payroll breakdown"),
   });
 
   footer(doc);
