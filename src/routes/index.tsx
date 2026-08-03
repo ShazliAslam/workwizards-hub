@@ -1,7 +1,15 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { ArrowRight, HardHat, ReceiptText, ShieldCheck, Timer, Wallet } from "lucide-react";
 import { useSession } from "@/lib/session";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { CURRENT_ENGINEER, ENGINEERS } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/")({
@@ -27,8 +35,11 @@ function SignIn() {
   const { signIn } = useSession();
   const router = useRouter();
 
+  const [engineerId, setEngineerId] = useState(CURRENT_ENGINEER.id);
+  const selected = ENGINEERS.find((e) => e.id === engineerId) ?? CURRENT_ENGINEER;
+
   const go = (role: "engineer" | "admin") => {
-    signIn(role);
+    signIn(role, engineerId);
     router.navigate({ to: role === "admin" ? "/admin" : "/engineer" });
   };
 
@@ -75,6 +86,24 @@ function SignIn() {
           </p>
 
           <div className="mt-6 space-y-3">
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                Engineer account
+              </span>
+              <Select value={engineerId} onValueChange={setEngineerId}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {ENGINEERS.map((e) => (
+                    <SelectItem key={e.id} value={e.id}>
+                      {e.name} · {e.region}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <button
               onClick={() => go("engineer")}
               className="group flex w-full items-center gap-4 rounded-xl border border-border bg-secondary/60 p-4 text-left transition hover:border-emerald hover:bg-secondary"
@@ -85,7 +114,7 @@ function SignIn() {
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-bold">Engineer Dashboard</span>
                 <span className="block truncate text-xs text-muted-foreground">
-                  {CURRENT_ENGINEER.email}
+                  {selected.email}
                 </span>
               </span>
               <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-emerald" />

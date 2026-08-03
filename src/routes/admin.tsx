@@ -36,6 +36,7 @@ import {
   gbp,
   gbp2,
 } from "@/lib/mock-data";
+import { generatePayrollPdf } from "@/lib/pdf";
 import { AppHeader } from "@/components/AppHeader";
 import { StatCard } from "@/components/StatCard";
 import { Button } from "@/components/ui/button";
@@ -348,15 +349,31 @@ function AdminDashboard() {
               </div>
               <Button
                 className="shrink-0 gap-2 bg-brand text-white hover:bg-brand-deep"
-                onClick={() => {
-                  toast.success("Payroll PDF generated", {
-                    description: `${ENGINEERS.length} engineers · ${gbp(payrollTotal)} gross`,
-                  });
-                  if (typeof window !== "undefined") window.print();
+                onClick={async () => {
+                  try {
+                    await generatePayrollPdf(
+                      payroll.map((p) => ({
+                        name: p.eng.name,
+                        region: p.eng.region,
+                        rate: p.eng.hourlyRate,
+                        dayHours: p.dayHours,
+                        nightHours: p.nightHours,
+                        base: p.base,
+                        reimb: p.reimb,
+                        gross: p.gross,
+                      })),
+                      "Last 28 days",
+                    );
+                    toast.success("Payroll PDF downloaded", {
+                      description: `${ENGINEERS.length} engineers · ${gbp(payrollTotal)} gross`,
+                    });
+                  } catch {
+                    toast.error("Could not generate the payroll PDF. Please try again.");
+                  }
                 }}
               >
                 <Download className="h-4 w-4" />
-                <span className="hidden sm:inline">Generate Payroll PDF</span>
+                <span className="hidden sm:inline">Export Payroll PDF</span>
                 <span className="sm:hidden">PDF</span>
               </Button>
             </div>
