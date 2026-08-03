@@ -15,13 +15,13 @@ import {
 import { toast } from "sonner";
 import { useSession } from "@/lib/session";
 import {
-  CURRENT_ENGINEER,
   SITES,
   daysAgo,
   expenseTotal,
   gbp,
   gbp2,
 } from "@/lib/mock-data";
+import { generateEngineerStatementPdf } from "@/lib/pdf";
 import { AppHeader } from "@/components/AppHeader";
 import { StatCard } from "@/components/StatCard";
 import { Button } from "@/components/ui/button";
@@ -60,18 +60,18 @@ export const Route = createFileRoute("/engineer")({
 const today = () => new Date().toISOString().slice(0, 10);
 
 function EngineerDashboard() {
-  const { shifts, expenses, addShift, addExpense, role } = useSession();
+  const { shifts, expenses, addShift, addExpense, role, engineer } = useSession();
   const router = useRouter();
 
   if (role === "admin") router.navigate({ to: "/admin" });
 
   const myShifts = useMemo(
-    () => shifts.filter((s) => s.engineerId === CURRENT_ENGINEER.id),
-    [shifts],
+    () => shifts.filter((s) => s.engineerId === engineer.id),
+    [shifts, engineer.id],
   );
   const myExpenses = useMemo(
-    () => expenses.filter((e) => e.engineerId === CURRENT_ENGINEER.id),
-    [expenses],
+    () => expenses.filter((e) => e.engineerId === engineer.id),
+    [expenses, engineer.id],
   );
 
   const weekHours = myShifts
@@ -83,7 +83,7 @@ function EngineerDashboard() {
   const pending = myExpenses.filter((e) => e.status === "Pending").length;
   const monthPay =
     myShifts.filter((s) => daysAgo(s.date) < 28).reduce((a, s) => a + s.hours, 0) *
-    CURRENT_ENGINEER.hourlyRate;
+    engineer.hourlyRate;
 
   const chartData = useMemo(() => {
     const buckets: Record<string, { day: string; Fuel: number; Meals: number; Card: number }> = {};
@@ -130,10 +130,10 @@ function EngineerDashboard() {
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
           <div className="min-w-0">
             <h1 className="truncate text-xl font-extrabold tracking-tight sm:text-2xl">
-              Good day, {CURRENT_ENGINEER.name.split(" ")[0]}
+              Good day, {engineer.name.split(" ")[0]}
             </h1>
             <p className="text-sm text-muted-foreground">
-              {CURRENT_ENGINEER.region} region · {gbp2(CURRENT_ENGINEER.hourlyRate)}/hr
+              {engineer.region} region · {gbp2(engineer.hourlyRate)}/hr
             </p>
           </div>
           <Badge className="shrink-0 bg-emerald/15 text-emerald hover:bg-emerald/15">
@@ -354,15 +354,19 @@ function EngineerDashboard() {
                 variant="outline"
                 size="sm"
                 className="shrink-0 gap-2"
-                onClick={() => {
-                  toast.success("Statement PDF generated", {
-                    description: `${CURRENT_ENGINEER.name} — 28 day expense & hours summary.`,
-                  });
-                  if (typeof window !== "undefined") window.print();
+                onClick={async () => {
+                  try {
+                    await generateEngineerStatementPdf(engineer, myShifts, myExpenses);
+                    toast.success("Receipt PDF downloaded", {
+                      description: `${engineer.name} — 28 day expense & hours statement.`,
+                    });
+                  } catch {
+                    toast.error("Could not generate the PDF. Please try again.");
+                  }
                 }}
               >
                 <Download className="h-4 w-4" />
-                <span className="hidden sm:inline">Download PDF</span>
+                <span className="hidden sm:inline">Generate Receipt PDF</span>
               </Button>
             </div>
 
