@@ -39,6 +39,21 @@ async function newDoc(title: string, subtitle: string) {
   return { doc, autoTable, width };
 }
 
+function sectionTitle(
+  doc: import("jspdf").jsPDF,
+  data: { cursor: { y: number } | null; table: { startY: number } },
+  label: string,
+) {
+  const y = data.table.startY - 10;
+  if (y < 40) return;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(16, 34, 66);
+  doc.text(label, 40, y);
+  doc.setTextColor(20, 20, 20);
+  doc.setFont("helvetica", "normal");
+}
+
 function footer(doc: import("jspdf").jsPDF) {
   const pages = doc.getNumberOfPages();
   const width = doc.internal.pageSize.getWidth();
@@ -91,7 +106,11 @@ export async function generateEngineerStatementPdf(
     styles: { fontSize: 9, cellPadding: 5 },
     alternateRowStyles: { fillColor: [243, 246, 250] },
     columnStyles: { 3: { halign: "right" } },
-    margin: { left: 40, right: 40 },
+    margin: { left: 40, right: 40, top: 60 },
+    pageBreak: "auto",
+    rowPageBreak: "avoid",
+    showHead: "everyPage",
+    didDrawPage: (d) => sectionTitle(doc, d, "Shift log"),
   });
 
   autoTable(doc, {
@@ -118,7 +137,11 @@ export async function generateEngineerStatementPdf(
       4: { halign: "right" },
       5: { halign: "right" },
     },
-    margin: { left: 40, right: 40 },
+    margin: { left: 40, right: 40, top: 60 },
+    pageBreak: "avoid",
+    rowPageBreak: "avoid",
+    showHead: "everyPage",
+    didDrawPage: (d) => sectionTitle(doc, d, "Expense claims"),
   });
 
   footer(doc);
@@ -185,7 +208,10 @@ export async function generatePayrollPdf(rows: PayrollRow[], periodLabel: string
       6: { halign: "right" },
       7: { halign: "right", fontStyle: "bold" },
     },
-    margin: { left: 40, right: 40 },
+    margin: { left: 40, right: 40, top: 60 },
+    rowPageBreak: "avoid",
+    showHead: "everyPage",
+    didDrawPage: (d) => sectionTitle(doc, d, "Payroll breakdown"),
   });
 
   footer(doc);
