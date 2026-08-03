@@ -114,7 +114,7 @@ export async function generateEngineerStatementPdf(
   autoTable(doc, {
     startY,
     head: [["Date", "Site", "Fuel", "Meals", "Card", "Total", "Receipt", "Status"]],
-    body: expenses.map((e) => [
+    body: [...expenses.map((e) => [
       e.date,
       e.site,
       money(e.fuel),
@@ -123,11 +123,14 @@ export async function generateEngineerStatementPdf(
       money(expenseTotal(e)),
       e.receiptName ? "Yes" : "—",
       e.status,
-    ]),
-    foot: [["", "Total claimed", "", "", "", money(totalClaims), "", ""]],
+    ]), ["", "Total claimed", "", "", "", money(totalClaims), "", ""]],
+    didParseCell: (d) => {
+      if (d.section === "body" && d.row.index === expenses.length) {
+        d.cell.styles.fontStyle = "bold";
+        d.cell.styles.fillColor = [235, 240, 246];
+      }
+    },
     headStyles: { fillColor: EMERALD, textColor: 255, fontStyle: "bold" },
-    showFoot: "lastPage",
-    footStyles: { fillColor: [235, 240, 246], textColor: 20, fontStyle: "bold" },
     styles: { fontSize: 9, cellPadding: 5 },
     alternateRowStyles: { fillColor: [243, 246, 250] },
     columnStyles: {
@@ -186,7 +189,7 @@ export async function generatePayrollPdf(rows: PayrollRow[], periodLabel: string
   autoTable(doc, {
     startY,
     head: [["Engineer", "Region", "Rate", "Day h", "Night h", "Base", "Reimb.", "Gross"]],
-    body: rows.map((r) => [
+    body: [...rows.map((r) => [
       r.name,
       r.region,
       money(r.rate),
@@ -195,12 +198,16 @@ export async function generatePayrollPdf(rows: PayrollRow[], periodLabel: string
       money(r.base),
       money(r.reimb),
       money(r.gross),
-    ]),
-    foot: [["Total", "", "", "", "", money(baseTotal), money(reimbTotal), money(total)]],
+    ]), ["Total", "", "", "", "", money(baseTotal), money(reimbTotal), money(total)]],
+    didParseCell: (d) => {
+      if (d.section === "body" && d.row.index === rows.length) {
+        d.cell.styles.fontStyle = "bold";
+        d.cell.styles.fillColor = [235, 240, 246];
+      }
+    },
+
     headStyles: { fillColor: NAVY, textColor: 255, fontStyle: "bold" },
-    showFoot: "lastPage",
-    footStyles: { fillColor: [235, 240, 246], textColor: 20, fontStyle: "bold" },
-    styles: { fontSize: 8.5, cellPadding: 4 },
+    styles: { fontSize: 8.5, cellPadding: 3.2 },
     alternateRowStyles: { fillColor: [243, 246, 250] },
     columnStyles: {
       2: { halign: "right" },
