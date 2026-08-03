@@ -207,7 +207,7 @@ export async function generatePayrollPdf(rows: PayrollRow[], periodLabel: string
     },
 
     headStyles: { fillColor: NAVY, textColor: 255, fontStyle: "bold" },
-    styles: { fontSize: 8.5, cellPadding: 3.2 },
+    styles: { fontSize: 8, cellPadding: 2.6 },
     alternateRowStyles: { fillColor: [243, 246, 250] },
     columnStyles: {
       2: { halign: "right" },
