@@ -7,7 +7,16 @@ export interface Engineer {
   email: string;
   region: string;
   hourlyRate: number;
+  /** Optional per-engineer Google Sheet ID used for two-way data syncing. */
+  sheetId?: string | undefined;
+  /** Blocked engineers stay in reports but cannot submit new records. */
+  active: boolean;
 }
+
+/** UK VAT is 20%; expense amounts are captured VAT-inclusive. */
+export const VAT_RATE = 0.2;
+export const vatPortion = (grossInclusive: number) =>
+  grossInclusive - grossInclusive / (1 + VAT_RATE);
 
 export interface ShiftLog {
   id: string;
@@ -71,6 +80,7 @@ export const ENGINEERS: Engineer[] = FIRST.map((f, i) => {
     email: `${f.toLowerCase()}.${LAST[i]!.toLowerCase()}@weactive9.com`,
     region: ["North", "South", "Midlands", "Scotland", "Wales"][i % 5]!,
     hourlyRate: 26 + Math.round(r() * 14),
+    active: true,
   };
 });
 

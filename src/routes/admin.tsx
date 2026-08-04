@@ -28,20 +28,22 @@ import {
 } from "recharts";
 import { useSession } from "@/lib/session";
 import {
-  ENGINEERS,
   SITES,
   daysAgo,
-  engineerById,
   expenseTotal,
   gbp,
   gbp2,
+  type Engineer,
 } from "@/lib/mock-data";
 import { generatePayrollPdf } from "@/lib/pdf";
 import { AppHeader } from "@/components/AppHeader";
 import { StatCard } from "@/components/StatCard";
+import { AddEngineerDialog } from "@/components/AddEngineerDialog";
+import { EngineerDetailDialog } from "@/components/EngineerDetailDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -80,7 +82,8 @@ export const Route = createFileRoute("/admin")({
 });
 
 function AdminDashboard() {
-  const { shifts, expenses } = useSession();
+  const { shifts, expenses, engineers, findEngineer, setEngineerActive } = useSession();
+  const [selected, setSelected] = useState<Engineer | null>(null);
 
   const [q, setQ] = useState("");
   const [site, setSite] = useState("all");
@@ -99,7 +102,7 @@ function AdminDashboard() {
   const rows = useMemo(() => {
     return expenses
       .filter((e) => {
-        const eng = engineerById(e.engineerId);
+        const eng = findEngineer(e.engineerId);
         if (q && !eng?.name.toLowerCase().includes(q.toLowerCase())) return false;
         if (site !== "all" && e.site !== site) return false;
         if (status !== "all" && e.status !== status) return false;
@@ -147,7 +150,7 @@ function AdminDashboard() {
 
   const payroll = useMemo(
     () =>
-      ENGINEERS.map((eng) => {
+      engineers.map((eng) => {
         const es = shifts.filter((s) => s.engineerId === eng.id && daysAgo(s.date) < 28);
         const dayHours = es.filter((s) => s.shiftType === "Day").reduce((a, s) => a + s.hours, 0);
         const nightHours = es.filter((s) => s.shiftType === "Night").reduce((a, s) => a + s.hours, 0);
@@ -157,7 +160,7 @@ function AdminDashboard() {
           .reduce((a, e) => a + expenseTotal(e), 0);
         return { eng, dayHours, nightHours, base, reimb, gross: base + reimb };
       }),
-    [shifts, expenses],
+    [engineers, shifts, expenses],
   );
   const payrollTotal = payroll.reduce((a, p) => a + p.gross, 0);
 
@@ -166,13 +169,16 @@ function AdminDashboard() {
       <AppHeader variant="admin" />
 
       <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6">
-        <div>
-          <h1 className="text-xl font-extrabold tracking-tight sm:text-2xl">
-            Operations overview
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Rolling 28 days across {ENGINEERS.length} field engineers.
-          </p>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-extrabold tracking-tight sm:text-2xl">
+              Operations overview
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Rolling 28 days across {engineers.length} field engineers.
+            </p>
+          </div>
+          <AddEngineerDialog />
         </div>
 
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -310,9 +316,13 @@ function AdminDashboard() {
                   {rows.slice(0, 60).map((r) => (
                     <TableRow key={r.id}>
                       <TableCell className="font-medium">
-                        <span className="block max-w-[10rem] truncate">
-                          {engineerById(r.engineerId)?.name}
-                        </span>
+                        <button
+                          type="button"
+                          className="block max-w-[10rem] truncate text-left font-semibold text-brand underline-offset-4 hover:underline"
+                          onClick={() => setSelected(findEngineer(r.engineerId) ?? null)}
+                        >
+                          {findEngineer(r.engineerId)?.name}
+                        </button>
                         <span className="block text-xs text-muted-foreground md:hidden">{r.site}</span>
                       </TableCell>
                       <TableCell className="hidden max-w-[12rem] truncate md:table-cell">{r.site}</TableCell>
@@ -365,7 +375,7 @@ function AdminDashboard() {
                       "Last 28 days",
                     );
                     toast.success("Payroll PDF downloaded", {
-                      description: `${ENGINEERS.length} engineers · ${gbp(payrollTotal)} gross`,
+                      description: `${engineers.length} engineers · ${gbp(payrollTotal)} gross`,
                     });
                   } catch {
                     toast.error("Could not generate the payroll PDF. Please try again.");
@@ -389,13 +399,20 @@ function AdminDashboard() {
                     <TableHead className="hidden text-right md:table-cell">Base pay</TableHead>
                     <TableHead className="hidden text-right md:table-cell">Reimburse</TableHead>
                     <TableHead className="text-right">Gross</TableHead>
+                    <TableHead className="text-right">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {payroll.map((p) => (
-                    <TableRow key={p.eng.id}>
+                    <TableRow key={p.eng.id} className={p.eng.active ? "" : "opacity-60"}>
                       <TableCell className="font-medium">
-                        <span className="block max-w-[10rem] truncate">{p.eng.name}</span>
+                        <button
+                          type="button"
+                          className="block max-w-[10rem] truncate text-left font-semibold text-brand underline-offset-4 hover:underline"
+                          onClick={() => setSelected(p.eng)}
+                        >
+                          {p.eng.name}
+                        </button>
                         <span className="block text-xs text-muted-foreground">{p.eng.region}</span>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">{gbp2(p.eng.hourlyRate)}</TableCell>
@@ -404,6 +421,18 @@ function AdminDashboard() {
                       <TableCell className="hidden text-right md:table-cell">{gbp(p.base)}</TableCell>
                       <TableCell className="hidden text-right md:table-cell">{gbp(p.reimb)}</TableCell>
                       <TableCell className="text-right font-bold">{gbp(p.gross)}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <span className="hidden text-xs text-muted-foreground sm:inline">
+                            {p.eng.active ? "Active" : "Blocked"}
+                          </span>
+                          <Switch
+                            checked={p.eng.active}
+                            aria-label={`Toggle ${p.eng.name} active status`}
+                            onCheckedChange={(v) => setEngineerActive(p.eng.id, v)}
+                          />
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -413,9 +442,14 @@ function AdminDashboard() {
         </Tabs>
 
         <p className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-          <Users className="h-3.5 w-3.5" /> {ENGINEERS.length} engineers ·{" "}
+          <Users className="h-3.5 w-3.5" /> {engineers.length} engineers ·{" "}
           <CreditCard className="h-3.5 w-3.5" /> card balances {gbp(cardTotal)}
         </p>
+
+        <EngineerDetailDialog
+          engineer={selected}
+          onOpenChange={(o) => !o && setSelected(null)}
+        />
       </main>
     </div>
   );

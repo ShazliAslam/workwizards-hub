@@ -2,10 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 
 const GATEWAY = "https://connector-gateway.lovable.dev/google_sheets/v4";
 
-function creds() {
+function creds(overrideSpreadsheetId?: string) {
   const lovableKey = process.env["LOVABLE_API_KEY"];
   const connectionKey = process.env["GOOGLE_SHEETS_API_KEY"];
-  const spreadsheetId = process.env["WEACTIVE9_SPREADSHEET_ID"];
+  const spreadsheetId = overrideSpreadsheetId || process.env["WEACTIVE9_SPREADSHEET_ID"];
   if (!lovableKey || !connectionKey || !spreadsheetId) return null;
   return { lovableKey, connectionKey, spreadsheetId };
 }
@@ -20,9 +20,9 @@ function headers(c: NonNullable<ReturnType<typeof creds>>) {
 
 /** Read a tab's values. Returns configured:false when Sheets isn't linked yet. */
 export const readSheetRange = createServerFn({ method: "GET" })
-  .inputValidator((data: { range: string }) => data)
+  .inputValidator((data: { range: string; spreadsheetId?: string }) => data)
   .handler(async ({ data }) => {
-    const c = creds();
+    const c = creds(data.spreadsheetId);
     if (!c) return { configured: false as const, values: [] as string[][] };
     const res = await fetch(
       `${GATEWAY}/spreadsheets/${c.spreadsheetId}/values/${data.range}`,
@@ -38,9 +38,9 @@ export const readSheetRange = createServerFn({ method: "GET" })
 
 /** Append one row to a tab. */
 export const appendSheetRow = createServerFn({ method: "POST" })
-  .inputValidator((data: { range: string; row: (string | number)[] }) => data)
+  .inputValidator((data: { range: string; row: (string | number)[]; spreadsheetId?: string }) => data)
   .handler(async ({ data }) => {
-    const c = creds();
+    const c = creds(data.spreadsheetId);
     if (!c) return { configured: false as const };
     const res = await fetch(
       `${GATEWAY}/spreadsheets/${c.spreadsheetId}/values/${data.range}:append?valueInputOption=USER_ENTERED`,
