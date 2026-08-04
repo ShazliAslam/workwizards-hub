@@ -121,7 +121,7 @@ export async function pushExpense(
     expense.creditCard,
     expense.receiptName ?? "",
   ];
-  return appendEverywhere(SHEET_TABS.expenses, row, expense.receiptName === undefined ? engineer.sheetId : engineer.sheetId);
+  return appendEverywhere(SHEET_TABS.expenses, row, engineer.sheetId);
 }
 
 /** Register a new engineer row on the master Engineers tab. */
