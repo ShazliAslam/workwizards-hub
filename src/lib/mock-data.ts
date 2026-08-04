@@ -80,6 +80,7 @@ export const ENGINEERS: Engineer[] = FIRST.map((f, i) => {
     email: `${f.toLowerCase()}.${LAST[i]!.toLowerCase()}@weactive9.com`,
     region: ["North", "South", "Midlands", "Scotland", "Wales"][i % 5]!,
     hourlyRate: 26 + Math.round(r() * 14),
+    active: true,
   };
 });
 
