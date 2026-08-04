@@ -28,20 +28,22 @@ import {
 } from "recharts";
 import { useSession } from "@/lib/session";
 import {
-  ENGINEERS,
   SITES,
   daysAgo,
-  engineerById,
   expenseTotal,
   gbp,
   gbp2,
+  type Engineer,
 } from "@/lib/mock-data";
 import { generatePayrollPdf } from "@/lib/pdf";
 import { AppHeader } from "@/components/AppHeader";
 import { StatCard } from "@/components/StatCard";
+import { AddEngineerDialog } from "@/components/AddEngineerDialog";
+import { EngineerDetailDialog } from "@/components/EngineerDetailDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
