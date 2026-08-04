@@ -316,9 +316,13 @@ function AdminDashboard() {
                   {rows.slice(0, 60).map((r) => (
                     <TableRow key={r.id}>
                       <TableCell className="font-medium">
-                        <span className="block max-w-[10rem] truncate">
+                        <button
+                          type="button"
+                          className="block max-w-[10rem] truncate text-left font-semibold text-brand underline-offset-4 hover:underline"
+                          onClick={() => setSelected(findEngineer(r.engineerId) ?? null)}
+                        >
                           {findEngineer(r.engineerId)?.name}
-                        </span>
+                        </button>
                         <span className="block text-xs text-muted-foreground md:hidden">{r.site}</span>
                       </TableCell>
                       <TableCell className="hidden max-w-[12rem] truncate md:table-cell">{r.site}</TableCell>
