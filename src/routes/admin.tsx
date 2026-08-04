@@ -399,13 +399,20 @@ function AdminDashboard() {
                     <TableHead className="hidden text-right md:table-cell">Base pay</TableHead>
                     <TableHead className="hidden text-right md:table-cell">Reimburse</TableHead>
                     <TableHead className="text-right">Gross</TableHead>
+                    <TableHead className="text-right">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {payroll.map((p) => (
-                    <TableRow key={p.eng.id}>
+                    <TableRow key={p.eng.id} className={p.eng.active ? "" : "opacity-60"}>
                       <TableCell className="font-medium">
-                        <span className="block max-w-[10rem] truncate">{p.eng.name}</span>
+                        <button
+                          type="button"
+                          className="block max-w-[10rem] truncate text-left font-semibold text-brand underline-offset-4 hover:underline"
+                          onClick={() => setSelected(p.eng)}
+                        >
+                          {p.eng.name}
+                        </button>
                         <span className="block text-xs text-muted-foreground">{p.eng.region}</span>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">{gbp2(p.eng.hourlyRate)}</TableCell>
@@ -414,6 +421,18 @@ function AdminDashboard() {
                       <TableCell className="hidden text-right md:table-cell">{gbp(p.base)}</TableCell>
                       <TableCell className="hidden text-right md:table-cell">{gbp(p.reimb)}</TableCell>
                       <TableCell className="text-right font-bold">{gbp(p.gross)}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <span className="hidden text-xs text-muted-foreground sm:inline">
+                            {p.eng.active ? "Active" : "Blocked"}
+                          </span>
+                          <Switch
+                            checked={p.eng.active}
+                            aria-label={`Toggle ${p.eng.name} active status`}
+                            onCheckedChange={(v) => setEngineerActive(p.eng.id, v)}
+                          />
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
