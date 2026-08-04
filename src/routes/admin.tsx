@@ -82,7 +82,8 @@ export const Route = createFileRoute("/admin")({
 });
 
 function AdminDashboard() {
-  const { shifts, expenses } = useSession();
+  const { shifts, expenses, engineers, findEngineer, setEngineerActive } = useSession();
+  const [selected, setSelected] = useState<Engineer | null>(null);
 
   const [q, setQ] = useState("");
   const [site, setSite] = useState("all");
@@ -101,7 +102,7 @@ function AdminDashboard() {
   const rows = useMemo(() => {
     return expenses
       .filter((e) => {
-        const eng = engineerById(e.engineerId);
+        const eng = findEngineer(e.engineerId);
         if (q && !eng?.name.toLowerCase().includes(q.toLowerCase())) return false;
         if (site !== "all" && e.site !== site) return false;
         if (status !== "all" && e.status !== status) return false;
@@ -149,7 +150,7 @@ function AdminDashboard() {
 
   const payroll = useMemo(
     () =>
-      ENGINEERS.map((eng) => {
+      engineers.map((eng) => {
         const es = shifts.filter((s) => s.engineerId === eng.id && daysAgo(s.date) < 28);
         const dayHours = es.filter((s) => s.shiftType === "Day").reduce((a, s) => a + s.hours, 0);
         const nightHours = es.filter((s) => s.shiftType === "Night").reduce((a, s) => a + s.hours, 0);
@@ -159,7 +160,7 @@ function AdminDashboard() {
           .reduce((a, e) => a + expenseTotal(e), 0);
         return { eng, dayHours, nightHours, base, reimb, gross: base + reimb };
       }),
-    [shifts, expenses],
+    [engineers, shifts, expenses],
   );
   const payrollTotal = payroll.reduce((a, p) => a + p.gross, 0);
 
@@ -173,7 +174,7 @@ function AdminDashboard() {
             Operations overview
           </h1>
           <p className="text-sm text-muted-foreground">
-            Rolling 28 days across {ENGINEERS.length} field engineers.
+            Rolling 28 days across {engineers.length} field engineers.
           </p>
         </div>
 
@@ -313,7 +314,7 @@ function AdminDashboard() {
                     <TableRow key={r.id}>
                       <TableCell className="font-medium">
                         <span className="block max-w-[10rem] truncate">
-                          {engineerById(r.engineerId)?.name}
+                          {findEngineer(r.engineerId)?.name}
                         </span>
                         <span className="block text-xs text-muted-foreground md:hidden">{r.site}</span>
                       </TableCell>
@@ -367,7 +368,7 @@ function AdminDashboard() {
                       "Last 28 days",
                     );
                     toast.success("Payroll PDF downloaded", {
-                      description: `${ENGINEERS.length} engineers · ${gbp(payrollTotal)} gross`,
+                      description: `${engineers.length} engineers · ${gbp(payrollTotal)} gross`,
                     });
                   } catch {
                     toast.error("Could not generate the payroll PDF. Please try again.");
@@ -415,7 +416,7 @@ function AdminDashboard() {
         </Tabs>
 
         <p className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-          <Users className="h-3.5 w-3.5" /> {ENGINEERS.length} engineers ·{" "}
+          <Users className="h-3.5 w-3.5" /> {engineers.length} engineers ·{" "}
           <CreditCard className="h-3.5 w-3.5" /> card balances {gbp(cardTotal)}
         </p>
       </main>
