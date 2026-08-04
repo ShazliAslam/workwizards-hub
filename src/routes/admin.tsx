@@ -169,13 +169,16 @@ function AdminDashboard() {
       <AppHeader variant="admin" />
 
       <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6">
-        <div>
-          <h1 className="text-xl font-extrabold tracking-tight sm:text-2xl">
-            Operations overview
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Rolling 28 days across {engineers.length} field engineers.
-          </p>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-extrabold tracking-tight sm:text-2xl">
+              Operations overview
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Rolling 28 days across {engineers.length} field engineers.
+            </p>
+          </div>
+          <AddEngineerDialog />
         </div>
 
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
