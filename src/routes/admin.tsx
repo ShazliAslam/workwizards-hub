@@ -445,6 +445,11 @@ function AdminDashboard() {
           <Users className="h-3.5 w-3.5" /> {engineers.length} engineers ·{" "}
           <CreditCard className="h-3.5 w-3.5" /> card balances {gbp(cardTotal)}
         </p>
+
+        <EngineerDetailDialog
+          engineer={selected}
+          onOpenChange={(o) => !o && setSelected(null)}
+        />
       </main>
     </div>
   );
