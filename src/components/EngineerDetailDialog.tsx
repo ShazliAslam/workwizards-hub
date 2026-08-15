@@ -59,9 +59,21 @@ interface Props {
 }
 
 export function EngineerDetailDialog({ engineer, onOpenChange }: Props) {
-  const { shifts, expenses, syncEngineerFromSheet } = useSession();
+  const { shifts, expenses, syncEngineerFromSheet, updateEngineer, deleteEngineer } = useSession();
   const [month, setMonth] = useState<string>("all");
   const [syncing, setSyncing] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [sheetDraft, setSheetDraft] = useState("");
+  const [rateDraft, setRateDraft] = useState("");
+  const [emailDraft, setEmailDraft] = useState("");
+
+  useEffect(() => {
+    setEditing(false);
+    setSheetDraft(engineer?.sheetId ?? "");
+    setRateDraft(engineer ? String(engineer.hourlyRate) : "");
+    setEmailDraft(engineer?.email ?? "");
+  }, [engineer]);
+
 
   const allShifts = useMemo<ShiftLog[]>(
     () => (engineer ? shifts.filter((s) => s.engineerId === engineer.id) : []),
