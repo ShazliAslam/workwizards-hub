@@ -154,6 +154,35 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         void pushEngineer(next).then((r) => syncToast("Engineer record", r));
         return next;
       },
+      updateEngineer: (id, patch) => {
+        setEngineers((prev) =>
+          prev.map((e) =>
+            e.id === id
+              ? {
+                  ...e,
+                  ...(patch.name !== undefined ? { name: patch.name } : {}),
+                  ...(patch.email !== undefined ? { email: patch.email } : {}),
+                  ...(patch.region !== undefined ? { region: patch.region } : {}),
+                  ...(patch.hourlyRate !== undefined ? { hourlyRate: patch.hourlyRate } : {}),
+                  ...(patch.sheetId !== undefined ? { sheetId: patch.sheetId || undefined } : {}),
+                }
+              : e,
+          ),
+        );
+        toast.success("Engineer details updated");
+      },
+      deleteEngineer: (id) => {
+        const target = findEngineer(id);
+        setEngineers((prev) => prev.filter((e) => e.id !== id));
+        setShifts((prev) => prev.filter((s) => s.engineerId !== id));
+        setExpenses((prev) => prev.filter((e) => e.engineerId !== id));
+        if (engineerId === id) {
+          const fallback = engineers.find((e) => e.id !== id);
+          if (fallback) setEngineerId(fallback.id);
+        }
+        toast.success(`${target?.name ?? "Engineer"} removed`);
+      },
+
       setEngineerActive: (id, active) => {
         setEngineers((prev) => prev.map((e) => (e.id === id ? { ...e, active } : e)));
         const target = findEngineer(id);
