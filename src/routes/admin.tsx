@@ -83,7 +83,7 @@ export const Route = createFileRoute("/admin")({
 
 function AdminDashboard() {
   const { shifts, expenses, engineers, findEngineer, setEngineerActive } = useSession();
-  const [selected, setSelected] = useState<Engineer | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const [q, setQ] = useState("");
   const [site, setSite] = useState("all");
@@ -319,7 +319,7 @@ function AdminDashboard() {
                         <button
                           type="button"
                           className="block max-w-[10rem] truncate text-left font-semibold text-brand underline-offset-4 hover:underline"
-                          onClick={() => setSelected(findEngineer(r.engineerId) ?? null)}
+                          onClick={() => setSelectedId(r.engineerId)}
                         >
                           {findEngineer(r.engineerId)?.name}
                         </button>
@@ -409,7 +409,7 @@ function AdminDashboard() {
                         <button
                           type="button"
                           className="block max-w-[10rem] truncate text-left font-semibold text-brand underline-offset-4 hover:underline"
-                          onClick={() => setSelected(p.eng)}
+                          onClick={() => setSelectedId(p.eng.id)}
                         >
                           {p.eng.name}
                         </button>
@@ -447,8 +447,8 @@ function AdminDashboard() {
         </p>
 
         <EngineerDetailDialog
-          engineer={selected}
-          onOpenChange={(o) => !o && setSelected(null)}
+          engineer={(selectedId ? findEngineer(selectedId) : null) ?? null}
+          onOpenChange={(o) => !o && setSelectedId(null)}
         />
       </main>
     </div>
