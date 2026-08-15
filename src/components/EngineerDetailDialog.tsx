@@ -181,7 +181,93 @@ export function EngineerDetailDialog({ engineer, onOpenChange }: Props) {
               >
                 <Download className="h-4 w-4" /> Statement PDF
               </Button>
+              <Button variant="outline" className="gap-2" onClick={() => setEditing((v) => !v)}>
+                <Pencil className="h-4 w-4" /> Edit / Link Google Sheet
+              </Button>
+              <Button
+                variant="destructive"
+                className="gap-2"
+                onClick={() => {
+                  if (
+                    typeof window !== "undefined" &&
+                    !window.confirm(`Remove ${engineer.name} and all their records?`)
+                  )
+                    return;
+                  deleteEngineer(engineer.id);
+                  onOpenChange(false);
+                }}
+              >
+                <Trash2 className="h-4 w-4" /> Delete engineer
+              </Button>
             </div>
+
+            {editing && (
+              <section className="surface-card grid gap-4 p-4 sm:grid-cols-2">
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="edit-sheet">Google Sheet ID / URL</Label>
+                  <Input
+                    id="edit-sheet"
+                    value={sheetDraft}
+                    maxLength={300}
+                    placeholder="1LuNs0Fze80u2gD1fAULv0At-3KF-qhPzHA-6BMb9DmY"
+                    onChange={(e) => setSheetDraft(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Paste the sheet ID or full URL, save, then hit Sync sheet to pull their records.
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-email">Work email</Label>
+                  <Input
+                    id="edit-email"
+                    type="email"
+                    value={emailDraft}
+                    maxLength={160}
+                    onChange={(e) => setEmailDraft(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-rate">Hourly rate (£)</Label>
+                  <Input
+                    id="edit-rate"
+                    type="number"
+                    min="1"
+                    step="0.5"
+                    value={rateDraft}
+                    onChange={(e) => setRateDraft(e.target.value)}
+                  />
+                </div>
+                <div className="flex gap-2 sm:col-span-2">
+                  <Button
+                    className="bg-brand text-white hover:bg-brand-deep"
+                    onClick={() => {
+                      const rate = Number(rateDraft);
+                      if (!Number.isFinite(rate) || rate <= 0) {
+                        toast.error("Enter a valid hourly rate");
+                        return;
+                      }
+                      if (!emailDraft.trim().includes("@")) {
+                        toast.error("Enter a valid work email");
+                        return;
+                      }
+                      updateEngineer(engineer.id, {
+                        sheetId: sheetDraft.trim(),
+                        email: emailDraft.trim(),
+                        hourlyRate: rate,
+                      });
+                      setEditing(false);
+                    }}
+                  >
+                    Save changes
+                  </Button>
+                  <Button variant="outline" onClick={() => setEditing(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </section>
+            )}
+
+
 
             <section className="grid gap-3 sm:grid-cols-3">
               {[
