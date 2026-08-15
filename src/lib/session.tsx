@@ -48,11 +48,15 @@ interface SessionValue {
   addShift: (s: Omit<ShiftLog, "id" | "engineerId" | "status">) => void;
   addExpense: (e: Omit<ExpenseEntry, "id" | "engineerId" | "status">) => void;
   addEngineer: (input: NewEngineerInput) => Engineer;
+  updateEngineer: (id: string, patch: Partial<NewEngineerInput>) => void;
+  deleteEngineer: (id: string) => void;
   setEngineerActive: (id: string, active: boolean) => void;
   syncEngineerFromSheet: (id: string) => Promise<void>;
 }
 
 const Ctx = createContext<SessionValue | null>(null);
+
+const STORAGE_KEY = "weactive9.engineers";
 
 /** Merge sheet-sourced rows into local state without duplicating ids. */
 function mergeById<T extends { id: string }>(local: T[], incoming: T[]): T[] {
@@ -65,8 +69,33 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<Role | null>(null);
   const [engineerId, setEngineerId] = useState<string>(CURRENT_ENGINEER.id);
   const [engineers, setEngineers] = useState<Engineer[]>(ENGINEERS);
+  const [hydrated, setHydrated] = useState(false);
   const [shifts, setShifts] = useState<ShiftLog[]>(SHIFTS);
   const [expenses, setExpenses] = useState<ExpenseEntry[]>(EXPENSES);
+
+  // Restore any admin edits (new engineers, sheet links, deletions) after hydration.
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw) as Engineer[];
+        if (Array.isArray(saved) && saved.length) setEngineers(saved);
+      }
+    } catch {
+      /* ignore corrupt storage */
+    }
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(engineers));
+    } catch {
+      /* storage full or unavailable */
+    }
+  }, [engineers, hydrated]);
+
 
   const value = useMemo<SessionValue>(() => {
     const findEngineer = (id: string) => engineers.find((e) => e.id === id);
