@@ -33,7 +33,6 @@ import {
   expenseTotal,
   gbp,
   gbp2,
-  type Engineer,
 } from "@/lib/mock-data";
 import { generatePayrollPdf } from "@/lib/pdf";
 import { AppHeader } from "@/components/AppHeader";
