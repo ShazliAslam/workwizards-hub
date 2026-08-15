@@ -1,4 +1,12 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+
 import { toast } from "sonner";
 import {
   CURRENT_ENGINEER,
@@ -40,11 +48,15 @@ interface SessionValue {
   addShift: (s: Omit<ShiftLog, "id" | "engineerId" | "status">) => void;
   addExpense: (e: Omit<ExpenseEntry, "id" | "engineerId" | "status">) => void;
   addEngineer: (input: NewEngineerInput) => Engineer;
+  updateEngineer: (id: string, patch: Partial<NewEngineerInput>) => void;
+  deleteEngineer: (id: string) => void;
   setEngineerActive: (id: string, active: boolean) => void;
   syncEngineerFromSheet: (id: string) => Promise<void>;
 }
 
 const Ctx = createContext<SessionValue | null>(null);
+
+const STORAGE_KEY = "weactive9.engineers";
 
 /** Merge sheet-sourced rows into local state without duplicating ids. */
 function mergeById<T extends { id: string }>(local: T[], incoming: T[]): T[] {
@@ -57,8 +69,33 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<Role | null>(null);
   const [engineerId, setEngineerId] = useState<string>(CURRENT_ENGINEER.id);
   const [engineers, setEngineers] = useState<Engineer[]>(ENGINEERS);
+  const [hydrated, setHydrated] = useState(false);
   const [shifts, setShifts] = useState<ShiftLog[]>(SHIFTS);
   const [expenses, setExpenses] = useState<ExpenseEntry[]>(EXPENSES);
+
+  // Restore any admin edits (new engineers, sheet links, deletions) after hydration.
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw) as Engineer[];
+        if (Array.isArray(saved) && saved.length) setEngineers(saved);
+      }
+    } catch {
+      /* ignore corrupt storage */
+    }
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(engineers));
+    } catch {
+      /* storage full or unavailable */
+    }
+  }, [engineers, hydrated]);
+
 
   const value = useMemo<SessionValue>(() => {
     const findEngineer = (id: string) => engineers.find((e) => e.id === id);
@@ -117,6 +154,35 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         void pushEngineer(next).then((r) => syncToast("Engineer record", r));
         return next;
       },
+      updateEngineer: (id, patch) => {
+        setEngineers((prev) =>
+          prev.map((e) =>
+            e.id === id
+              ? {
+                  ...e,
+                  ...(patch.name !== undefined ? { name: patch.name } : {}),
+                  ...(patch.email !== undefined ? { email: patch.email } : {}),
+                  ...(patch.region !== undefined ? { region: patch.region } : {}),
+                  ...(patch.hourlyRate !== undefined ? { hourlyRate: patch.hourlyRate } : {}),
+                  ...(patch.sheetId !== undefined ? { sheetId: patch.sheetId || undefined } : {}),
+                }
+              : e,
+          ),
+        );
+        toast.success("Engineer details updated");
+      },
+      deleteEngineer: (id) => {
+        const target = findEngineer(id);
+        setEngineers((prev) => prev.filter((e) => e.id !== id));
+        setShifts((prev) => prev.filter((s) => s.engineerId !== id));
+        setExpenses((prev) => prev.filter((e) => e.engineerId !== id));
+        if (engineerId === id) {
+          const fallback = engineers.find((e) => e.id !== id);
+          if (fallback) setEngineerId(fallback.id);
+        }
+        toast.success(`${target?.name ?? "Engineer"} removed`);
+      },
+
       setEngineerActive: (id, active) => {
         setEngineers((prev) => prev.map((e) => (e.id === id ? { ...e, active } : e)));
         const target = findEngineer(id);
