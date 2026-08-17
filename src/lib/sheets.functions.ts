@@ -4,14 +4,17 @@ const GATEWAY = "https://connector-gateway.lovable.dev/google_sheets/v4";
 
 function creds(overrideSpreadsheetId?: string) {
   const spreadsheetId = overrideSpreadsheetId || process.env["WEACTIVE9_SPREADSHEET_ID"];
-  // A sheet ID is all we require — if it's present we treat Sheets as active
-  // and let the gateway report any real credential problem.
   if (!spreadsheetId) return null;
-  return {
-    lovableKey: process.env["LOVABLE_API_KEY"] ?? "",
-    connectionKey: process.env["GOOGLE_SHEETS_API_KEY"] ?? "",
-    spreadsheetId,
-  };
+  const lovableKey = (process.env["LOVABLE_API_KEY"] ?? "").trim();
+  const connectionKey = (process.env["GOOGLE_SHEETS_API_KEY"] ?? "").trim();
+  // Never send `Bearer` with an empty/whitespace token — the gateway rejects it
+  // with a 400 "Malformed Authorization header".
+  if (!lovableKey || !connectionKey) {
+    throw new Error(
+      "Google Sheets connection is not linked yet, so no access token is available. Link the Google Sheets connector in Lovable, then retry Sync sheet.",
+    );
+  }
+  return { lovableKey, connectionKey, spreadsheetId };
 }
 
 function headers(c: NonNullable<ReturnType<typeof creds>>) {
@@ -21,6 +24,7 @@ function headers(c: NonNullable<ReturnType<typeof creds>>) {
     "Content-Type": "application/json",
   };
 }
+
 
 
 /** Read a tab's values. Returns configured:false when Sheets isn't linked yet. */
