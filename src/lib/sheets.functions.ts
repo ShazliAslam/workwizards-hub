@@ -3,11 +3,15 @@ import { createServerFn } from "@tanstack/react-start";
 const GATEWAY = "https://connector-gateway.lovable.dev/google_sheets/v4";
 
 function creds(overrideSpreadsheetId?: string) {
-  const lovableKey = process.env["LOVABLE_API_KEY"];
-  const connectionKey = process.env["GOOGLE_SHEETS_API_KEY"];
   const spreadsheetId = overrideSpreadsheetId || process.env["WEACTIVE9_SPREADSHEET_ID"];
-  if (!lovableKey || !connectionKey || !spreadsheetId) return null;
-  return { lovableKey, connectionKey, spreadsheetId };
+  // A sheet ID is all we require — if it's present we treat Sheets as active
+  // and let the gateway report any real credential problem.
+  if (!spreadsheetId) return null;
+  return {
+    lovableKey: process.env["LOVABLE_API_KEY"] ?? "",
+    connectionKey: process.env["GOOGLE_SHEETS_API_KEY"] ?? "",
+    spreadsheetId,
+  };
 }
 
 function headers(c: NonNullable<ReturnType<typeof creds>>) {
@@ -17,6 +21,7 @@ function headers(c: NonNullable<ReturnType<typeof creds>>) {
     "Content-Type": "application/json",
   };
 }
+
 
 /** Read a tab's values. Returns configured:false when Sheets isn't linked yet. */
 export const readSheetRange = createServerFn({ method: "GET" })
