@@ -197,8 +197,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           return;
         }
         const res = await fetchEngineerSheetRecords(target);
-        if (!res.configured) {
-          toast.error("Google Sheets is not connected yet");
+        if (res.error) {
+          toast.error("Google Sheets sync failed", { description: res.error });
           return;
         }
         setShifts((prev) => mergeById(prev, res.shifts));
@@ -207,6 +207,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           description: `${res.shifts.length} shifts · ${res.expenses.length} claims reviewed`,
         });
       },
+
     };
   }, [role, engineerId, engineers, shifts, expenses]);
 
