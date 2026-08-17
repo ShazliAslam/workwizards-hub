@@ -59,16 +59,16 @@ export async function fetchEngineerRecords(): Promise<Engineer[]> {
  */
 export async function fetchEngineerSheetRecords(
   engineer: Engineer,
-): Promise<{ shifts: ShiftLog[]; expenses: ExpenseEntry[]; configured: boolean }> {
-  const empty = { shifts: [], expenses: [], configured: false };
-  if (!engineer.sheetId) return empty;
+): Promise<{ shifts: ShiftLog[]; expenses: ExpenseEntry[]; configured: boolean; error?: string }> {
+  if (!engineer.sheetId) {
+    return { shifts: [], expenses: [], configured: false, error: "No Google Sheet linked" };
+  }
   const spreadsheetId = parseSpreadsheetId(engineer.sheetId);
   try {
     const [s, e] = await Promise.all([
       readSheetRange({ data: { range: SHEET_TABS.shiftsRead, spreadsheetId } }),
       readSheetRange({ data: { range: SHEET_TABS.expensesRead, spreadsheetId } }),
     ]);
-    if (!s.configured && !e.configured) return empty;
     const shifts: ShiftLog[] = s.values
       .filter((r) => r[0])
       .map((r) => ({
@@ -95,10 +95,12 @@ export async function fetchEngineerSheetRecords(
       }));
     return { shifts, expenses, configured: true };
   } catch (err) {
-    console.error("[sheetsService] fetchEngineerSheetRecords failed", err);
-    return empty;
+    const error = err instanceof Error ? err.message : "Unknown Google Sheets error";
+    console.error("[sheetsService] fetchEngineerSheetRecords failed", error);
+    return { shifts: [], expenses: [], configured: true, error };
   }
 }
+
 
 /** Append a submitted shift to the Shifts tab (company sheet + engineer sheet). */
 export async function pushShift(shift: ShiftLog, engineer: Engineer): Promise<SyncResult> {
