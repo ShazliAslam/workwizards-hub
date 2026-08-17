@@ -203,8 +203,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         }
         setShifts((prev) => mergeById(prev, res.shifts));
         setExpenses((prev) => mergeById(prev, res.expenses));
-        toast.success(`Synced ${target.name}'s sheet`, {
-          description: `${res.shifts.length} shifts · ${res.expenses.length} claims reviewed`,
+        toast.success("Sheet synced successfully!", {
+          description: `${target.name}: ${res.shifts.length} shifts · ${res.expenses.length} claims reviewed`,
         });
       },
 
