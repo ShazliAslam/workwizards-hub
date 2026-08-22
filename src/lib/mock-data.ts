@@ -1,16 +1,31 @@
 export type Status = "Pending" | "Approved";
 export type ShiftType = "Day" | "Night";
 
+export type DocumentKind = "drivingLicense" | "photoId" | "resume";
+
+export interface EngineerDocument {
+  name: string;
+  /** Data URL kept locally so the file can be previewed / downloaded again. */
+  url: string;
+  uploadedAt: string;
+}
+
 export interface Engineer {
   id: string;
   name: string;
   email: string;
   region: string;
-  hourlyRate: number;
+  /** Pay per completed shift (£). */
+  shiftRate: number;
+  /** Percentage deducted from gross shift earnings before payout. */
+  vatRate: number;
+  /** Amount already paid out (kept in sync with the sheet's Paid column). */
+  paidAmount: number;
   /** Optional per-engineer Google Sheet ID used for two-way data syncing. */
   sheetId?: string | undefined;
   /** Blocked engineers stay in reports but cannot submit new records. */
   active: boolean;
+  documents?: Partial<Record<DocumentKind, EngineerDocument>> | undefined;
 }
 
 /** UK VAT is 20%; expense amounts are captured VAT-inclusive. */
@@ -18,14 +33,26 @@ export const VAT_RATE = 0.2;
 export const vatPortion = (grossInclusive: number) =>
   grossInclusive - grossInclusive / (1 + VAT_RATE);
 
+/** Default deduction applied to shift earnings for new engineers. */
+export const DEFAULT_VAT_DEDUCTION = 6;
+
+/** Own-vehicle allowance is capped at one per day, seven per week. */
+export const OWN_VEHICLE_WEEKLY_CAP = 7;
+
 export interface ShiftLog {
   id: string;
   engineerId: string;
   date: string; // YYYY-MM-DD
   site: string;
   shiftType: ShiftType;
-  hours: number;
+  /** Number of shifts logged on this day (normally 1). */
+  shiftCount: number;
+  /** Own-vehicle daily allowance claimed for this day. */
+  ownVehicle: boolean;
   status: Status;
+  /** Engineer-raised query / comment against this shift. */
+  comment?: string | undefined;
+  commentAt?: string | undefined;
 }
 
 export interface ExpenseEntry {
@@ -79,7 +106,9 @@ export const ENGINEERS: Engineer[] = FIRST.map((f, i) => {
     name,
     email: `${f.toLowerCase()}.${LAST[i]!.toLowerCase()}@weactive9.com`,
     region: ["North", "South", "Midlands", "Scotland", "Wales"][i % 5]!,
-    hourlyRate: 26 + Math.round(r() * 14),
+    shiftRate: 180 + Math.round(r() * 12) * 5,
+    vatRate: DEFAULT_VAT_DEDUCTION,
+    paidAmount: 0,
     active: true,
   };
 });
@@ -108,7 +137,8 @@ ENGINEERS.forEach((eng, ei) => {
       date,
       site,
       shiftType: r() > 0.72 ? "Night" : "Day",
-      hours: 6 + Math.round(r() * 6),
+      shiftCount: 1,
+      ownVehicle: r() > 0.35,
       status,
     });
     if (r() < 0.75) {
@@ -125,6 +155,15 @@ ENGINEERS.forEach((eng, ei) => {
       });
     }
   }
+});
+
+// Seed a few paid balances so the payment sync view has meaningful data.
+ENGINEERS.forEach((eng, i) => {
+  const total = SHIFTS.filter((s) => s.engineerId === eng.id).reduce(
+    (a, s) => a + s.shiftCount,
+    0,
+  );
+  eng.paidAmount = Math.round(total * eng.shiftRate * (i % 4 === 0 ? 0 : 0.5));
 });
 
 export const gbp = (n: number) =>
