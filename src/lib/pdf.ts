@@ -1,5 +1,6 @@
 import type { Engineer, ExpenseEntry, ShiftLog } from "@/lib/mock-data";
 import { expenseTotal } from "@/lib/mock-data";
+import { ownVehicleDays, paymentSummary, totalShifts } from "@/lib/payroll";
 
 const NAVY: [number, number, number] = [16, 34, 66];
 const EMERALD: [number, number, number] = [16, 145, 105];
@@ -66,17 +67,20 @@ function footer(doc: import("jspdf").jsPDF) {
   }
 }
 
+const finalY = (doc: import("jspdf").jsPDF) =>
+  (doc as never as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
+
 export async function generateEngineerStatementPdf(
   engineer: Engineer,
   shifts: ShiftLog[],
   expenses: ExpenseEntry[],
 ) {
   const { doc, autoTable } = await newDoc(
-    "Engineer statement · last 28 days",
+    "Engineer statement",
     `${engineer.name} · ${engineer.region} region · ${engineer.email}`,
   );
 
-  const totalHours = shifts.reduce((a, s) => a + s.hours, 0);
+  const sum = paymentSummary(engineer, shifts, expenses);
   const totalClaims = expenses.reduce((a, e) => a + expenseTotal(e), 0);
 
   let startY = 150;
@@ -85,20 +89,31 @@ export async function generateEngineerStatementPdf(
     theme: "plain",
     styles: { fontSize: 10, cellPadding: 6 },
     body: [
-      ["Total hours logged", `${totalHours} h`],
-      ["Base rate", money(engineer.hourlyRate) + " / hour"],
-      ["Estimated base pay", money(totalHours * engineer.hourlyRate)],
-      ["Total expense claims", money(totalClaims)],
+      ["Total shifts logged", `${sum.shiftCount}`],
+      ["Shift rate", money(engineer.shiftRate) + " / shift"],
+      ["Own-vehicle days (max 7/week)", `${sum.ownVehicleDays}`],
+      ["Gross shift earnings", money(sum.grossEarned)],
+      [`VAT deduction (${engineer.vatRate}%)`, `- ${money(sum.vatDeducted)}`],
+      ["Approved reimbursables", money(sum.reimbursables)],
+      ["Paid to date", `- ${money(sum.paid)}`],
+      ["Net to be paid", money(sum.toBePaid)],
     ],
-    columnStyles: { 0: { fontStyle: "bold", cellWidth: 200 }, 1: { halign: "right" } },
-    tableWidth: 380,
+    columnStyles: { 0: { fontStyle: "bold", cellWidth: 220 }, 1: { halign: "right" } },
+    tableWidth: 400,
   });
 
-  startY = (doc as never as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 24;
+  startY = finalY(doc) + 24;
   autoTable(doc, {
     startY,
-    head: [["Date", "Site", "Shift", "Hours", "Status"]],
-    body: shifts.map((s) => [s.date, s.site, s.shiftType, `${s.hours}`, s.status]),
+    head: [["Date", "Site", "Shift", "Shifts", "Own vehicle", "Status"]],
+    body: shifts.map((s) => [
+      s.date,
+      s.site,
+      s.shiftType,
+      `${s.shiftCount}`,
+      s.ownVehicle ? "Yes" : "-",
+      s.status,
+    ]),
     headStyles: { fillColor: NAVY, textColor: 255, fontStyle: "bold" },
     styles: { fontSize: 9, cellPadding: 5 },
     alternateRowStyles: { fillColor: [243, 246, 250] },
@@ -110,7 +125,7 @@ export async function generateEngineerStatementPdf(
     didDrawPage: () => sectionTitle(doc, startY, "Shift log"),
   });
 
-  startY = (doc as never as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 24;
+  startY = finalY(doc) + 24;
   autoTable(doc, {
     startY,
     head: [["Date", "Site", "Fuel", "Meals", "Card", "Total", "Receipt", "Status"]],
@@ -154,11 +169,13 @@ export interface PayrollRow {
   name: string;
   region: string;
   rate: number;
-  dayHours: number;
-  nightHours: number;
-  base: number;
-  reimb: number;
+  shifts: number;
+  ownVehicle: number;
   gross: number;
+  vat: number;
+  reimb: number;
+  paid: number;
+  toBePaid: number;
 }
 
 export async function generatePayrollPdf(rows: PayrollRow[], periodLabel: string) {
@@ -167,9 +184,12 @@ export async function generatePayrollPdf(rows: PayrollRow[], periodLabel: string
     `${periodLabel} · ${rows.length} engineers`,
   );
 
-  const total = rows.reduce((a, r) => a + r.gross, 0);
-  const baseTotal = rows.reduce((a, r) => a + r.base, 0);
-  const reimbTotal = rows.reduce((a, r) => a + r.reimb, 0);
+  const sumOf = (k: keyof PayrollRow) => rows.reduce((a, r) => a + Number(r[k] ?? 0), 0);
+  const grossTotal = sumOf("gross");
+  const vatTotal = sumOf("vat");
+  const reimbTotal = sumOf("reimb");
+  const paidTotal = sumOf("paid");
+  const dueTotal = sumOf("toBePaid");
 
   let startY = 150;
   autoTable(doc, {
@@ -177,35 +197,38 @@ export async function generatePayrollPdf(rows: PayrollRow[], periodLabel: string
     theme: "plain",
     styles: { fontSize: 10, cellPadding: 6 },
     body: [
-      ["Base pay (incl. 15% night uplift)", money(baseTotal)],
+      ["Gross shift earnings", money(grossTotal)],
+      ["VAT deducted", `- ${money(vatTotal)}`],
       ["Approved reimbursements", money(reimbTotal)],
-      ["Gross payroll", money(total)],
+      ["Paid to date", `- ${money(paidTotal)}`],
+      ["Total to be paid", money(dueTotal)],
     ],
     columnStyles: { 0: { fontStyle: "bold", cellWidth: 240 }, 1: { halign: "right" } },
     tableWidth: 400,
   });
 
-  startY = (doc as never as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 24;
+  startY = finalY(doc) + 24;
   autoTable(doc, {
     startY,
-    head: [["Engineer", "Region", "Rate", "Day h", "Night h", "Base", "Reimb.", "Gross"]],
+    head: [["Engineer", "Region", "Rate", "Shifts", "Vehicle", "Gross", "VAT", "Reimb.", "Paid", "To be paid"]],
     body: [...rows.map((r) => [
       r.name,
       r.region,
       money(r.rate),
-      `${r.dayHours}`,
-      `${r.nightHours}`,
-      money(r.base),
-      money(r.reimb),
+      `${r.shifts}`,
+      `${r.ownVehicle}`,
       money(r.gross),
-    ]), ["Total", "", "", "", "", money(baseTotal), money(reimbTotal), money(total)]],
+      money(r.vat),
+      money(r.reimb),
+      money(r.paid),
+      money(r.toBePaid),
+    ]), ["Total", "", "", "", "", money(grossTotal), money(vatTotal), money(reimbTotal), money(paidTotal), money(dueTotal)]],
     didParseCell: (d) => {
       if (d.section === "body" && d.row.index === rows.length) {
         d.cell.styles.fontStyle = "bold";
         d.cell.styles.fillColor = [235, 240, 246];
       }
     },
-
     headStyles: { fillColor: NAVY, textColor: 255, fontStyle: "bold" },
     styles: { fontSize: 8, cellPadding: 2.6 },
     alternateRowStyles: { fillColor: [243, 246, 250] },
@@ -215,7 +238,9 @@ export async function generatePayrollPdf(rows: PayrollRow[], periodLabel: string
       4: { halign: "right" },
       5: { halign: "right" },
       6: { halign: "right" },
-      7: { halign: "right", fontStyle: "bold" },
+      7: { halign: "right" },
+      8: { halign: "right" },
+      9: { halign: "right", fontStyle: "bold" },
     },
     margin: { left: 40, right: 40, top: 60 },
     rowPageBreak: "avoid",
@@ -226,3 +251,82 @@ export async function generatePayrollPdf(rows: PayrollRow[], periodLabel: string
   footer(doc);
   doc.save(`weactive9-payroll-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
+
+export interface InvoiceLine {
+  label: string;
+  shifts: number;
+  gross: number;
+  vat: number;
+  reimb: number;
+  net: number;
+}
+
+export async function generateInvoicePdf(opts: {
+  reference: string;
+  periodLabel: string;
+  granularity: string;
+  lines: InvoiceLine[];
+}) {
+  const { doc, autoTable } = await newDoc(
+    `Invoice ${opts.reference}`,
+    `${opts.granularity} invoice · ${opts.periodLabel}`,
+  );
+
+  const total = (k: keyof InvoiceLine) =>
+    opts.lines.reduce((a, l) => a + Number(l[k] ?? 0), 0);
+
+  let startY = 150;
+  autoTable(doc, {
+    startY,
+    theme: "plain",
+    styles: { fontSize: 10, cellPadding: 6 },
+    body: [
+      ["Shifts invoiced", `${total("shifts")}`],
+      ["Gross shift value", money(total("gross"))],
+      ["VAT deducted", `- ${money(total("vat"))}`],
+      ["Reimbursables", money(total("reimb"))],
+      ["Net payable", money(total("net"))],
+    ],
+    columnStyles: { 0: { fontStyle: "bold", cellWidth: 220 }, 1: { halign: "right" } },
+    tableWidth: 400,
+  });
+
+  startY = finalY(doc) + 24;
+  autoTable(doc, {
+    startY,
+    head: [["Engineer", "Shifts", "Gross", "VAT deducted", "Reimbursables", "Net payable"]],
+    body: [...opts.lines.map((l) => [
+      l.label,
+      `${l.shifts}`,
+      money(l.gross),
+      money(l.vat),
+      money(l.reimb),
+      money(l.net),
+    ]), ["Total", `${total("shifts")}`, money(total("gross")), money(total("vat")), money(total("reimb")), money(total("net"))]],
+    didParseCell: (d) => {
+      if (d.section === "body" && d.row.index === opts.lines.length) {
+        d.cell.styles.fontStyle = "bold";
+        d.cell.styles.fillColor = [235, 240, 246];
+      }
+    },
+    headStyles: { fillColor: EMERALD, textColor: 255, fontStyle: "bold" },
+    styles: { fontSize: 9, cellPadding: 4 },
+    alternateRowStyles: { fillColor: [243, 246, 250] },
+    columnStyles: {
+      1: { halign: "right" },
+      2: { halign: "right" },
+      3: { halign: "right" },
+      4: { halign: "right" },
+      5: { halign: "right", fontStyle: "bold" },
+    },
+    margin: { left: 40, right: 40, top: 60 },
+    rowPageBreak: "avoid",
+    showHead: "everyPage",
+    didDrawPage: () => sectionTitle(doc, startY, "Invoice lines"),
+  });
+
+  footer(doc);
+  doc.save(`weactive9-invoice-${opts.reference}.pdf`);
+}
+
+export { totalShifts, ownVehicleDays };

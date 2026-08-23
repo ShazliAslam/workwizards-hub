@@ -2,19 +2,26 @@
  * Google Sheets service for WeActive9.
  *
  * All network work happens server-side (see `src/lib/sheets.functions.ts`) so the
- * connector credentials never reach the browser. Until a Google Sheets connection
- * and `WEACTIVE9_SPREADSHEET_ID` are configured, every call resolves to
- * `{ synced: false }` and the app keeps working from local state.
+ * connector credentials never reach the browser.
  */
 import { appendSheetRow, readSheetRange } from "@/lib/sheets.functions";
-import type { Engineer, ExpenseEntry, ShiftLog, ShiftType, Status } from "@/lib/mock-data";
+import {
+  DEFAULT_VAT_DEDUCTION,
+  type Engineer,
+  type ExpenseEntry,
+  type ShiftLog,
+  type ShiftType,
+  type Status,
+} from "@/lib/mock-data";
 
 export const SHEET_TABS = {
-  engineers: "Engineers!A2:G",
-  shifts: "Shifts!A:F",
+  engineers: "Engineers!A2:I",
+  shifts: "Shifts!A:G",
   expenses: "Expenses!A:H",
-  shiftsRead: "Shifts!A2:F",
+  shiftsRead: "Shifts!A2:G",
   expensesRead: "Expenses!A2:H",
+  /** Date | Amount paid */
+  paymentsRead: "Payments!A2:B",
 } as const;
 
 export interface SyncResult {
@@ -31,6 +38,9 @@ export function parseSpreadsheetId(input: string): string {
   return match?.[1] ?? trimmed;
 }
 
+const truthy = (v?: string) =>
+  ["yes", "y", "true", "1", "own", "own vehicle"].includes((v ?? "").trim().toLowerCase());
+
 /** Read the engineer master records from the Engineers tab. */
 export async function fetchEngineerRecords(): Promise<Engineer[]> {
   try {
@@ -43,9 +53,11 @@ export async function fetchEngineerRecords(): Promise<Engineer[]> {
         name: r[1] ?? "",
         email: r[2] ?? "",
         region: r[3] ?? "",
-        hourlyRate: Number(r[4] ?? 0),
-        sheetId: r[5] || undefined,
-        active: (r[6] ?? "Active").toLowerCase() !== "blocked",
+        shiftRate: Number(r[4] ?? 0),
+        vatRate: Number(r[5] ?? DEFAULT_VAT_DEDUCTION),
+        paidAmount: Number(r[6] ?? 0),
+        sheetId: r[7] || undefined,
+        active: (r[8] ?? "Active").toLowerCase() !== "blocked",
       }));
   } catch (err) {
     console.error("[sheetsService] fetchEngineerRecords failed", err);
@@ -55,11 +67,15 @@ export async function fetchEngineerRecords(): Promise<Engineer[]> {
 
 /**
  * Pull an individual engineer's own spreadsheet so their externally-logged
- * shifts and claims can be merged with in-app submissions.
+ * shifts, claims and payments can be merged with in-app submissions.
  */
-export async function fetchEngineerSheetRecords(
-  engineer: Engineer,
-): Promise<{ shifts: ShiftLog[]; expenses: ExpenseEntry[]; configured: boolean; error?: string }> {
+export async function fetchEngineerSheetRecords(engineer: Engineer): Promise<{
+  shifts: ShiftLog[];
+  expenses: ExpenseEntry[];
+  paid?: number;
+  configured: boolean;
+  error?: string;
+}> {
   if (!engineer.sheetId) {
     return { shifts: [], expenses: [], configured: false, error: "No Google Sheet linked" };
   }
@@ -77,7 +93,8 @@ export async function fetchEngineerSheetRecords(
         date: r[2] ?? "",
         site: r[3] ?? "",
         shiftType: (r[4] === "Night" ? "Night" : "Day") as ShiftType,
-        hours: Number(r[5] ?? 0),
+        shiftCount: Number(r[5] ?? 1) || 1,
+        ownVehicle: truthy(r[6]),
         status: "Approved" as Status,
       }));
     const expenses: ExpenseEntry[] = e.values
@@ -93,7 +110,9 @@ export async function fetchEngineerSheetRecords(
         receiptName: r[7] || undefined,
         status: "Approved" as Status,
       }));
-    return { shifts, expenses, configured: true };
+
+    const paid = await fetchPaidTotal(spreadsheetId);
+    return { shifts, expenses, configured: true, ...(paid !== undefined ? { paid } : {}) };
   } catch (err) {
     const error = err instanceof Error ? err.message : "Unknown Google Sheets error";
     console.error("[sheetsService] fetchEngineerSheetRecords failed", error);
@@ -101,10 +120,33 @@ export async function fetchEngineerSheetRecords(
   }
 }
 
+/** Sum of the Paid column on the engineer's Payments tab (optional tab). */
+export async function fetchPaidTotal(spreadsheetId: string): Promise<number | undefined> {
+  try {
+    const res = await readSheetRange({ data: { range: SHEET_TABS.paymentsRead, spreadsheetId } });
+    if (!res.configured) return undefined;
+    const total = res.values.reduce((a, r) => {
+      const n = Number(String(r[1] ?? "").replace(/[^0-9.-]/g, ""));
+      return a + (Number.isFinite(n) ? n : 0);
+    }, 0);
+    return total;
+  } catch {
+    // Payments tab is optional — a missing tab must not fail the whole sync.
+    return undefined;
+  }
+}
 
 /** Append a submitted shift to the Shifts tab (company sheet + engineer sheet). */
 export async function pushShift(shift: ShiftLog, engineer: Engineer): Promise<SyncResult> {
-  const row = [shift.id, engineer.name, shift.date, shift.site, shift.shiftType, shift.hours];
+  const row = [
+    shift.id,
+    engineer.name,
+    shift.date,
+    shift.site,
+    shift.shiftType,
+    shift.shiftCount,
+    shift.ownVehicle ? "Yes" : "No",
+  ];
   return appendEverywhere(SHEET_TABS.shifts, row, engineer.sheetId);
 }
 
@@ -128,12 +170,14 @@ export async function pushExpense(
 
 /** Register a new engineer row on the master Engineers tab. */
 export async function pushEngineer(engineer: Engineer): Promise<SyncResult> {
-  return append("Engineers!A:G", [
+  return append("Engineers!A:I", [
     engineer.id,
     engineer.name,
     engineer.email,
     engineer.region,
-    engineer.hourlyRate,
+    engineer.shiftRate,
+    engineer.vatRate,
+    engineer.paidAmount,
     engineer.sheetId ?? "",
     engineer.active ? "Active" : "Blocked",
   ]);
